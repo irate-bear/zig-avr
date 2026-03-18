@@ -25,7 +25,8 @@ Add to your `build.zig.zon`:
             .hash = "1220...",
         },
     },
-}```
+}
+```
 
 ## Usage
 
