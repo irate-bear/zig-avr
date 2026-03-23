@@ -1,7 +1,14 @@
-const gpio = @import("../hal/gpio.zig");
-const Pin = gpio.Pin;
-const Port = gpio.Port;
-const PortRegisters = gpio.PortRegisters;
+const avr_gpio = @import("../../hal/gpio.zig");
+const avr_timer = @import("timer.zig");
+const avr_uart = @import("uart.zig");
+
+const Pin = avr_gpio.Pin;
+const Port = avr_gpio.Port;
+const PortRegisters = avr_gpio.PortRegisters;
+
+pub const timer = avr_timer.timer;
+pub const uart = avr_uart.uart;
+pub const gpio = avr_gpio;
 
 pub fn getRegisters(port: Port) PortRegisters {
     return switch (port) {
