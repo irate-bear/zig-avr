@@ -62,7 +62,7 @@ pub fn digitalWrite(pin: Pin, pinstate: PinState) void {
     }
 }
 
-pub fn digitalRead(pin: Pin) Mode {
+pub fn digitalRead(pin: Pin) PinState {
     return if ((pin.pin_reg.* & (@as(u8, 1) << pin.bit)) != 0)
         .high
     else
