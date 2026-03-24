@@ -2,17 +2,6 @@
 
 A Hardware Abstraction Layer (HAL) for AVR microcontrollers, written in pure Zig. Currently supports ATmega2560 (Arduino Mega 2560).
 
-## ⚠️ Version Compatibility
-
-**This library was tested with Zig 0.13.0**
-
-Newer Zig versions (0.14.0+) have AVR backend issues. We recommend using 0.13.0 for now.
-
-Install with [zvm](https://github.com/trae/zvm):
-```bash
-zvm install 0.13.0
-zvm use 0.13.0
-
 ## Features
 
 - ✨ Pure Zig, zero dependencies

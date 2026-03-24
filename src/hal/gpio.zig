@@ -5,8 +5,8 @@ pub const Mode = enum {
 };
 
 pub const PinState = enum(u1) {
-    high = 1,
-    low = 0,
+    high = 0,
+    low = 1,
 
     pub fn fromBool(b: bool) PinState {
         return if (b) .high else .low;
@@ -62,7 +62,7 @@ pub fn digitalWrite(pin: Pin, pinstate: PinState) void {
     }
 }
 
-pub fn digitalRead(pin: Pin) PinState {
+pub fn digitalRead(pin: Pin) Mode {
     return if ((pin.pin_reg.* & (@as(u8, 1) << pin.bit)) != 0)
         .high
     else

@@ -1,10 +1,14 @@
-const config = @import("config");
+pub const hal = struct {
+    pub const gpio = @import("hal/gpio.zig");
+    pub const timer = @import("hal/timer.zig");
+    pub const uart = @import("hal/uart.zig");
+};
 
-pub const board = switch (config.board) {
-    .mega2560 => @import("boards/atmega2560/mega2560.zig"),
+pub const boards = struct {
+    pub const mega2560 = @import("boards/mega2560.zig");
     //TODO: Add more boards here later
 };
 
-pub const gpio = board.gpio;
-pub const timer = board.timer;
-pub const uart = board.uart;
+pub const gpio = hal.gpio;
+pub const timer = hal.timer;
+pub const uart = hal.uart;
