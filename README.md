@@ -1,6 +1,6 @@
 # Zig AVR HAL
 
-A pure Zig Hardware Abstraction Layer (HAL) for AVR microcontrollers, providing type-safe GPIO, timer, and UART control with zero dependencies.
+A Hardware Abstraction Layer (HAL) for AVR microcontrollers, written in pure Zig. Currently supports ATmega2560 (Arduino Mega 2560).
 
 ## ⚠️ Version Compatibility
 
@@ -15,20 +15,12 @@ zvm use 0.13.0
 
 ## Features
 
-- ✨ **Pure Zig** - No C code, no external dependencies
-- 💡 **Type-safe GPIO** - Pin operations with compile-time checking
-- ⏱️ **Timer utilities** - Accurate delays and timing
-- 📡 **UART communication** - Serial output support
-- 🔧 **Proven build pattern** - Uses Zig for compilation, avr-gcc for linking
-- 🚀 **Simple integration** - Add to any Zig project in minutes
-
-## Supported Boards
-
-| Board | Chip | LED Pin | Status |
-|-------|------|---------|--------|
-| Arduino Mega 2560 | ATmega2560 | PB7 (pin 13) | ✅ Working |
-| Arduino Uno | ATmega328P | PB5 (pin 13) | ✅ Working |
-| Arduino Leonardo | ATmega32u4 | PC7 (pin 13) | ✅ Working |
+- ✨ Pure Zig, zero dependencies
+- 💡 GPIO control with type-safe pin operations
+- ⏱️ Timer utilities for delays
+- 📡 UART communication
+- 🔧 No external linker scripts needed
+- 🚀 Simple build integration
 
 ## Installation
 
@@ -40,7 +32,7 @@ Add to your `build.zig.zon`:
     .version = "0.1.0",
     .dependencies = .{
         .@"zig-avr" = .{
-            .url = "https://github.com/irate-bear/zig-avr/archive/refs/tags/v0.1.0.tar.gz",
+            .url = "https://github.com/yourusername/zig-avr/archive/refs/tags/v0.1.0.tar.gz",
             .hash = "1220...",
         },
     },
@@ -49,102 +41,37 @@ Add to your `build.zig.zon`:
 
 ## Usage
 
-### Build Configuration
-
 In your `build.zig`:
 
 ```zig
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    // ============================================
-    // CONFIGURATION - Change these for your setup
-    // ============================================
-    
-    const chip = struct {
-        pub const name = "atmega2560";      // GCC chip name
-        pub const avrdude = "m2560";         // avrdude chip name
-        pub const programmer = "wiring";      // Programmer type
-        pub const port = "/dev/ttyACM0";      // Serial port
-        pub const baud = "115200";            // Baud rate
-    };
-
-    // ============================================
-    // Build setup
-    // ============================================
-    
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = .avr,
-        .cpu_model = .{
-            .explicit = &std.Target.avr.cpu.atmega2560, //Change CPU model as needed
-        },
-        .os_tag = .freestanding,
-    });
-
+    const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Get the zig-avr dependency
     const avr_dep = b.dependency("zig-avr", .{
         .target = target,
         .optimize = optimize,
     });
     const avr = avr_dep.module("zig-avr");
 
-    // Compile main to object file
-    const main_obj = b.addObject(.{
-        .name = "main",
+    const exe = b.addExecutable(.{
+        .name = "firmware",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    main_obj.root_module.addImport("zig-avr", avr);
+    exe.root_module.addImport("zig-avr", avr);
+    
+    if (target.result.cpu_arch == .avr) {
+        exe.entry = .{ .symbol_name = "main" };
+        exe.bundle_compiler_rt = false;
+    }
 
-    // Create output directory
-    const mkdir_bin = b.addSystemCommand(&.{ "mkdir", "-p", "zig-out/bin" });
-
-    // Link with avr-gcc to create ELF
-    const link = b.addSystemCommand(&.{
-        "avr-gcc",
-        "-mmcu=" ++ chip.name,
-        "-Os",
-        "-o",
-        "zig-out/bin/firmware.elf",
-    });
-    link.addFileArg(main_obj.getEmittedBin());
-    link.step.dependOn(&main_obj.step);
-    link.step.dependOn(&mkdir_bin.step);
-
-    // Build step
-    const build_step = b.step("build", "Build firmware.elf");
-    build_step.dependOn(&link.step);
-
-    // Hex step
-    const hex_step = b.step("hex", "Generate firmware.hex");
-    const objcopy = b.addSystemCommand(&.{
-        "avr-objcopy", "-O", "ihex", "-R", ".eeprom",
-        "zig-out/bin/firmware.elf", "zig-out/bin/firmware.hex",
-    });
-    objcopy.step.dependOn(&link.step);
-    hex_step.dependOn(&objcopy.step);
-
-    // Flash step
-    const flash_step = b.step("flash", "Flash to device");
-    const flash = b.addSystemCommand(&.{
-        "avrdude",
-        "-c", chip.programmer,
-        "-p", chip.avrdude,
-        "-P", chip.port,
-        "-b", chip.baud,
-        "-D", "-U", "flash:w:zig-out/bin/firmware.hex:i",
-    });
-    flash.step.dependOn(hex_step);
-    flash_step.dependOn(&flash.step);
-
-    b.default_step = build_step;
+    b.installArtifact(exe);
 }
 ```
-
-### Example Code
 
 In your `src/main.zig`:
 
@@ -152,23 +79,13 @@ In your `src/main.zig`:
 const avr = @import("zig-avr");
 
 pub export fn main() void {
-    // Initialize peripherals
-    avr.timer.init();
-    avr.uart.init();
-
-    // use built-in LED
     const led = avr.boards.mega2560.LED_BUILTIN;
     avr.gpio.pinMode(led, .output);
-
-    avr.uart.writeString("Hello from Zig on AVR!\n");
     
     while (true) {
         avr.gpio.digitalWrite(led, .high);
-        avr.uart.writeString("LED ON\n");
         avr.timer.delay(1000);
-
         avr.gpio.digitalWrite(led, .low);
-        avr.uart.writeString("LED OFF\n");
         avr.timer.delay(1000);
     }
 }
@@ -177,52 +94,14 @@ pub export fn main() void {
 ## Building and Flashing
 
 ```bash
-# Build ELF only
+# Build
 zig build
 
-# Build ELF + generate HEX
+# Generate HEX file (add this step to your build.zig)
 zig build hex
 
-# Build + flash to device
-zig build flash
-```
-
-## Configuration Examples
-
-### Arduino Uno
-
-```zig
-const chip = struct {
-    pub const name = "atmega328p";
-    pub const avrdude = "m328p";
-    pub const programmer = "arduino";
-    pub const port = "/dev/ttyUSB0";
-    pub const baud = "115200";
-};
-```
-
-### Arduino Leonardo
-
-```zig
-const chip = struct {
-    pub const name = "atmega32u4";
-    pub const avrdude = "m32u4";
-    pub const programmer = "avr109";
-    pub const port = "/dev/ttyACM0";
-    pub const baud = "57600";
-};
-```
-
-### Arduino Mega
-
-```zig
-const chip = struct {
-    pub const name = "atmega2560";
-    pub const avrdude = "m2560";
-    pub const programmer = "wiring";
-    pub const port = "/dev/ttyACM0";
-    pub const baud = "115200";
-};
+# Flash (requires avrdude)
+avrdude -c wiring -p m2560 -P /dev/ttyACM0 -b 115200 -D -U flash:w:zig-out/hex/firmware.hex:i
 ```
 
 ## API Reference
@@ -272,24 +151,47 @@ const led = board.LED_BUILTIN;    // PB7 (pin 13)
 const d2 = board.d2;               // Digital pin 2
 const d13 = board.d13;             // Digital pin 13 (same as LED)
 ```
-## Why This Build Pattern?
 
-The Zig AVR backend is improving but the linker can be unstable. This pattern:
+## Adding HEX Generation to build.zig
 
-1. ✅ Uses Zig for compilation (excellent code generation)
-2. ✅ Uses avr-gcc for linking (stable, AVR-optimized)
-3. ✅ Separates concerns - each tool does what it does best
-4. ✅ Works reliably across different AVR chips
-5. ✅ Simple to debug - clear steps with visible output
+Add this to your `build.zig`:
+
+```zig
+// After installing the executable
+const install_exe = b.addInstallArtifact(exe, .{});
+
+// HEX file generation
+const hex_step = b.step("hex", "Generate HEX file");
+const hex_dir = "zig-out/hex";
+const hex_file = b.fmt("{s}/firmware.hex", .{hex_dir});
+
+const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", hex_dir });
+const objcopy = b.addSystemCommand(&.{
+    "avr-objcopy", "-O", "ihex",
+    "-R", ".eeprom",
+});
+objcopy.addFileArg(exe.getEmittedBin());
+objcopy.addArg(hex_file);
+
+objcopy.step.dependOn(&mkdir.step);
+objcopy.step.dependOn(&install_exe.step);
+hex_step.dependOn(&objcopy.step);
+```
 
 ## Troubleshooting
-
 ### Linker warnings about .note-GNU-stack
 
 These warnings are harmless and can be ignored. They don't affect functionality.
 
+### Flash verification mismatch
+
+Use the erase flag with avrdude:
+
+```bash
+avrdude -c wiring -p m2560 -P /dev/ttyACM0 -b 115200 -e -D -U flash:w:firmware.hex:i
+```
 ### Programmer not responding
 
-- Check the correct port (`/dev/ttyACM0`, `/dev/ttyUSB0`, or `COM3`)
-- Ensure you're in the dialout group: `sudo usermod -a -G dialout $USER` OR ``sudo usermod -a -G uucp $USER``
+- Check the correct port (/dev/ttyACM0, /dev/ttyUSB0, or COM3)
+- Ensure you're in the dialout group: sudo usermod -a -G dialout $USER
 - Try the reset trick: press reset, then immediately run avrdude.
